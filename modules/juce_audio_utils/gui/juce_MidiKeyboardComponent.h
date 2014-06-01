@@ -406,4 +406,33 @@ private:
 };
 
 
+//==============================================================================
+/**
+ A MidiKeyboardComponent subclass with a "sticky" keys behavior - A clicked key
+ remains pressed until clicked again.
+ 
+ @see MidiKeyboardComponent
+ */
+class StickyMidiKeyboardComponent : public MidiKeyboardComponent
+{
+public:
+    //==============================================================================
+    /** Creates a StickyMidiKeyboardComponent.
+     
+     @see MidiKeyboardComponent constructor.
+     */
+    StickyMidiKeyboardComponent (MidiKeyboardState& state,
+                                 Orientation orientation);
+    
+    /** Destructor. */
+    ~StickyMidiKeyboardComponent();
+    
+protected:
+    virtual void updateNoteUnderMouse(int newNote, bool isDown, int fingerNum, float mousePositionVelocity) override;
+    
+private:
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StickyMidiKeyboardComponent);
+};
+
+
 #endif   // JUCE_MIDIKEYBOARDCOMPONENT_H_INCLUDED

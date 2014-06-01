@@ -891,3 +891,21 @@ void MidiKeyboardComponent::focusLost (FocusChangeType)
 {
     resetAnyKeysInUse();
 }
+
+//==============================================================================
+StickyMidiKeyboardComponent::StickyMidiKeyboardComponent (MidiKeyboardState& s,
+                                                          const Orientation o)
+: MidiKeyboardComponent(s, o)
+{
+    /* Empty */
+}
+
+StickyMidiKeyboardComponent::~StickyMidiKeyboardComponent()
+{
+    /* Empty */
+}
+
+void StickyMidiKeyboardComponent::updateNoteUnderMouse(int newNote, bool isDown, int fingerNum, float mousePositionVelocity)
+{
+    return MidiKeyboardComponent::updateNoteUnderMouse(newNote, isDown, fingerNum, mousePositionVelocity);
+}
