@@ -351,6 +351,19 @@ protected:
     */
     virtual void mouseUpOnKey (int midiNoteNumber, const MouseEvent& e);
 
+    /** Callback for when the mouse is down on a key on which it wasn't already
+        down.
+    */
+    virtual void mouseDownStartedOnKey(int midiNoteNumber, float velocity);
+
+    /** Callback for when the mouse was down on a key and is no longer down on it.
+        This can happen on mouse up, or if the mouse is still down but is being
+        dragged away from the key.
+     
+        Timing wise, this will be called -after- the mouseDownOnKey, mouseUpOnKey, 
+        and mouseDraggedToKey callbacks. */
+    virtual void mouseDownFinishedOnKey (int midiNoteNumber);
+    
     /** Calculates the positon of a given midi-note.
 
         This can be overridden to create layouts with custom key-widths.
@@ -364,6 +377,9 @@ protected:
     virtual void getKeyPosition (int midiNoteNumber, float keyWidth,
                                  int& x, int& w) const;
 
+    /** Interface for subclasses for read-only access to the mouseDownNotes array. */
+    const Array<int>& getMouseDownNotes();
+    
 private:
     //==============================================================================
     friend class MidiKeyboardUpDownButton;
@@ -428,9 +444,15 @@ public:
     ~StickyMidiKeyboardComponent();
     
 protected:
-    virtual void updateNoteUnderMouse(int newNote, bool isDown, int fingerNum, float mousePositionVelocity) override;
-    
+    //==============================================================================
+    virtual void mouseUpOnKey (int midiNoteNumber, const MouseEvent& e) override;
+    virtual void mouseDownStartedOnKey(int midiNoteNumber, float velocity) override;
+    virtual void mouseDownFinishedOnKey (int midiNoteNumber) override;
+
 private:
+    //==============================================================================
+    SortedSet<int> stuckKeys;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StickyMidiKeyboardComponent);
 };
 
