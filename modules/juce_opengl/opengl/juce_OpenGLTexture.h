@@ -93,7 +93,8 @@ private:
     int width, height;
     OpenGLContext* ownerContext;
 
-    void create (int w, int h, const void*, GLenum, bool topLeft);
+    /** SR addition: image stride length parameter added. */
+    void create (int w, int h, const void* pixels, const int strideLen, GLenum pixelFormat, bool topLeft);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OpenGLTexture)
 };

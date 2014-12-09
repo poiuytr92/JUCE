@@ -46,7 +46,7 @@ bool OpenGLTexture::isValidSize (int width, int height)
     return isPowerOfTwo (width) && isPowerOfTwo (height);
 }
 
-void OpenGLTexture::create (const int w, const int h, const void* pixels, GLenum type, bool topLeft)
+void OpenGLTexture::create (int w, int h, const void* pixels, int strideLen, GLenum type, bool topLeft)
 {
     ownerContext = OpenGLContext::getCurrentContext();
 
@@ -74,23 +74,20 @@ void OpenGLTexture::create (const int w, const int h, const void* pixels, GLenum
     glPixelStorei (GL_UNPACK_ALIGNMENT, 1);
     JUCE_CHECK_OPENGL_ERROR
 
-    width  = getAllowedTextureSize (w);
+    width  = getAllowedTextureSize (strideLen);
     height = getAllowedTextureSize (h);
 
     const GLint internalformat = type == GL_ALPHA ? GL_ALPHA : GL_RGBA;
 
     if (width != w || height != h)
     {
-        glTexImage2D (GL_TEXTURE_2D, 0, internalformat,
-                      width, height, 0, type, GL_UNSIGNED_BYTE, nullptr);
+        glTexImage2D (GL_TEXTURE_2D, 0, internalformat, width, height, 0, type, GL_UNSIGNED_BYTE, nullptr);
 
-        glTexSubImage2D (GL_TEXTURE_2D, 0, 0, topLeft ? (height - h) : 0, w, h,
-                         type, GL_UNSIGNED_BYTE, pixels);
+        glTexSubImage2D (GL_TEXTURE_2D, 0, 0, topLeft ? (height - h) : 0, strideLen, h, type, GL_UNSIGNED_BYTE, pixels);
     }
     else
     {
-        glTexImage2D (GL_TEXTURE_2D, 0, internalformat,
-                      w, h, 0, type, GL_UNSIGNED_BYTE, pixels);
+        glTexImage2D (GL_TEXTURE_2D, 0, internalformat, strideLen, h, 0, type, GL_UNSIGNED_BYTE, pixels);
     }
 
     JUCE_CHECK_OPENGL_ERROR
@@ -99,8 +96,7 @@ void OpenGLTexture::create (const int w, const int h, const void* pixels, GLenum
 template <class PixelType>
 struct Flipper
 {
-    static void flip (HeapBlock<PixelARGB>& dataCopy, const uint8* srcData, const int lineStride,
-                      const int w, const int h)
+    static void flip (HeapBlock<PixelARGB>& dataCopy, const uint8* srcData, const int lineStride, const int w, const int h)
     {
         dataCopy.malloc ((size_t) (w * h));
 
@@ -119,7 +115,29 @@ struct Flipper
                #endif
             }
 
+            srcData += lineStride;
+        }
+    }
 
+    static void format (HeapBlock<PixelARGB>& dataCopy, const uint8* srcData, const int lineStride, const int w, const int h)
+    {
+        dataCopy.malloc ((size_t) (w * h));
+        
+        for (int y = 0; y < h; ++y)
+        {
+            const PixelType* src = (const PixelType*) srcData;
+            PixelARGB* const dst = (PixelARGB*) (dataCopy + w * y);
+            
+            for (int x = 0; x < w; ++x)
+            {
+#if JUCE_ANDROID
+                PixelType s (src[x]);
+                dst[x].setARGB (s.getAlpha(), s.getBlue(), s.getGreen(), s.getRed());
+#else
+                dst[x].set (src[x]);
+#endif
+            }
+            
             srcData += lineStride;
         }
     }
@@ -130,28 +148,46 @@ void OpenGLTexture::loadImage (const Image& image)
     const int imageW = image.getWidth();
     const int imageH = image.getHeight();
 
-    HeapBlock<PixelARGB> dataCopy;
     Image::BitmapData srcData (image, Image::BitmapData::readOnly);
 
     switch (srcData.pixelFormat)
     {
-        case Image::ARGB:           Flipper<PixelARGB> ::flip (dataCopy, srcData.data, srcData.lineStride, imageW, imageH); break;
-        case Image::RGB:            Flipper<PixelRGB>  ::flip (dataCopy, srcData.data, srcData.lineStride, imageW, imageH); break;
-        case Image::SingleChannel:  Flipper<PixelAlpha>::flip (dataCopy, srcData.data, srcData.lineStride, imageW, imageH); break;
-        default: break;
+        case Image::ARGB:
+        {
+            // SR addition: do not flip images (CPU expensive operation) if the image is marked as already flipped.
+            jassert(srcData.pixelStride == sizeof(PixelARGB));
+            create (imageW, imageH, srcData.data, srcData.lineStride/sizeof(PixelARGB), JUCE_RGBA_FORMAT, true);
+            break;
+        }
+        case Image::RGB:
+        {
+            HeapBlock<PixelARGB> dataCopy;
+            Flipper<PixelRGB>::format (dataCopy, srcData.data, srcData.lineStride, imageW, imageH);
+            create (imageW, imageH, dataCopy, srcData.lineStride, JUCE_RGBA_FORMAT, true);
+            break;
+        }
+        case Image::SingleChannel:
+        {
+            HeapBlock<PixelARGB> dataCopy;
+            Flipper<PixelAlpha>::format (dataCopy, srcData.data, srcData.lineStride, imageW, imageH);
+            create (imageW, imageH, dataCopy, srcData.lineStride, JUCE_RGBA_FORMAT, true);
+            break;
+        }
+        default:
+        {
+            break;
+        }
     }
-
-    create (imageW, imageH, dataCopy, JUCE_RGBA_FORMAT, true);
 }
 
 void OpenGLTexture::loadARGB (const PixelARGB* pixels, const int w, const int h)
 {
-    create (w, h, pixels, JUCE_RGBA_FORMAT, false);
+    create (w, h, pixels, w, JUCE_RGBA_FORMAT, false);
 }
 
 void OpenGLTexture::loadAlpha (const uint8* pixels, int w, int h)
 {
-    create (w, h, pixels, GL_ALPHA, false);
+    create (w, h, pixels, w, GL_ALPHA, false);
 }
 
 void OpenGLTexture::loadARGBFlipped (const PixelARGB* pixels, int w, int h)
@@ -159,7 +195,7 @@ void OpenGLTexture::loadARGBFlipped (const PixelARGB* pixels, int w, int h)
     HeapBlock<PixelARGB> flippedCopy;
     Flipper<PixelARGB>::flip (flippedCopy, (const uint8*) pixels, 4 * w, w, h);
 
-    create (w, h, flippedCopy, JUCE_RGBA_FORMAT, true);
+    create (w, h, flippedCopy, w, JUCE_RGBA_FORMAT, true);
 }
 
 void OpenGLTexture::release()

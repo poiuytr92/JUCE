@@ -1645,7 +1645,9 @@ public:
                                  const AffineTransform& trans, Graphics::ResamplingQuality, bool tiledFill) const
     {
         state->shaderQuadQueue.flush();
-        state->setShaderForTiledImageFill (state->cachedImageList->getTextureFor (src), trans, 0, nullptr, tiledFill);
+        // SR addition: Images should be flipped vertically.
+        AffineTransform flipTrx = AffineTransform::verticalFlip(src.getHeight()).followedBy(trans);
+        state->setShaderForTiledImageFill (state->cachedImageList->getTextureFor (src), flipTrx, 0, nullptr, tiledFill);
 
         state->shaderQuadQueue.add (iter, PixelARGB ((uint8) alpha, (uint8) alpha, (uint8) alpha, (uint8) alpha));
         state->shaderQuadQueue.flush();
