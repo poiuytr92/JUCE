@@ -2338,8 +2338,15 @@ public:
                     Rectangle<int> intersect = area.getIntersection (getThis().getMaximumBounds());
 
                     if (intersect == area)
-                        clip->renderImageUntransformed (getThis(), sourceImage, alpha, tx, ty, false);
-                    else if (! intersect.isEmpty())
+                    {
+                        Image::BitmapData bmp(sourceImage, Image::BitmapData::readOnly);
+                        if( bmp.width == bmp.lineStride / bmp.pixelStride )
+                        {
+                            clip->renderImageUntransformed (getThis(), sourceImage, alpha, tx, ty, false);
+                            return;
+                        }
+                    }
+                    if (! intersect.isEmpty())
                         if (typename BaseRegionType::Ptr c = clip->applyClipTo (new EdgeTableRegionType (intersect)))
                             c->renderImageUntransformed (getThis(), sourceImage, alpha, tx, ty, false);
                 }
