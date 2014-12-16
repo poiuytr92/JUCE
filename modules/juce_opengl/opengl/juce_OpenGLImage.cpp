@@ -126,6 +126,7 @@ private:
 
         void write (const PixelARGB* const data) const noexcept
         {
+/* SR addition: no verical flip
             HeapBlock<PixelARGB> invertedCopy ((size_t) (area.getWidth() * area.getHeight()));
             const size_t rowSize = sizeof (PixelARGB) * (size_t) area.getWidth();
 
@@ -134,6 +135,8 @@ private:
                         data + area.getWidth() * (area.getHeight() - 1 - y), rowSize);
 
             frameBuffer.writePixels (invertedCopy, area);
+*/
+            frameBuffer.writePixels (data, area, false);
         }
 
         OpenGLFrameBuffer& frameBuffer;

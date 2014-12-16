@@ -116,7 +116,7 @@ public:
         The lineStride is measured as a number of pixels, not bytes - pass a stride
         of 0 to indicate a packed array.
     */
-    bool writePixels (const PixelARGB* srcData, const Rectangle<int>& targetArea);
+    bool writePixels (const PixelARGB* srcData, const Rectangle<int>& targetArea, /* SR addition */ bool flippedVertically = true);
 
 private:
     class Pimpl;
