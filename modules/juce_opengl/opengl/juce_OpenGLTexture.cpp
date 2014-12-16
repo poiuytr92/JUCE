@@ -118,29 +118,6 @@ struct Flipper
             srcData += lineStride;
         }
     }
-
-    static void format (HeapBlock<PixelARGB>& dataCopy, const uint8* srcData, const int lineStride, const int w, const int h)
-    {
-        dataCopy.malloc ((size_t) (w * h));
-        
-        for (int y = 0; y < h; ++y)
-        {
-            const PixelType* src = (const PixelType*) srcData;
-            PixelARGB* const dst = (PixelARGB*) (dataCopy + w * y);
-            
-            for (int x = 0; x < w; ++x)
-            {
-#if JUCE_ANDROID
-                PixelType s (src[x]);
-                dst[x].setARGB (s.getAlpha(), s.getBlue(), s.getGreen(), s.getRed());
-#else
-                dst[x].set (src[x]);
-#endif
-            }
-            
-            srcData += lineStride;
-        }
-    }
 };
 
 void OpenGLTexture::loadImage (const Image& image)
@@ -150,27 +127,25 @@ void OpenGLTexture::loadImage (const Image& image)
 
     Image::BitmapData srcData (image, Image::BitmapData::readOnly);
 
+    // SR addition: do not flip images (CPU expensive operation).
     switch (srcData.pixelFormat)
     {
         case Image::ARGB:
         {
-            // SR addition: do not flip images (CPU expensive operation) if the image is marked as already flipped.
             jassert(srcData.pixelStride == sizeof(PixelARGB));
             create (imageW, imageH, srcData.data, srcData.lineStride/sizeof(PixelARGB), JUCE_RGBA_FORMAT, true);
             break;
         }
         case Image::RGB:
         {
-            HeapBlock<PixelARGB> dataCopy;
-            Flipper<PixelRGB>::format (dataCopy, srcData.data, srcData.lineStride, imageW, imageH);
-            create (imageW, imageH, dataCopy, srcData.lineStride, JUCE_RGBA_FORMAT, true);
+            jassert(srcData.pixelStride == sizeof(PixelARGB));
+            create (imageW, imageH, srcData.data, srcData.lineStride/sizeof(PixelRGB), GL_RGB, true);
             break;
         }
         case Image::SingleChannel:
         {
-            HeapBlock<PixelARGB> dataCopy;
-            Flipper<PixelAlpha>::format (dataCopy, srcData.data, srcData.lineStride, imageW, imageH);
-            create (imageW, imageH, dataCopy, srcData.lineStride, JUCE_RGBA_FORMAT, true);
+            jassert(srcData.pixelStride == sizeof(PixelAlpha));
+            create (imageW, imageH, srcData.data, srcData.lineStride/sizeof(PixelAlpha), GL_ALPHA, true);
             break;
         }
         default:

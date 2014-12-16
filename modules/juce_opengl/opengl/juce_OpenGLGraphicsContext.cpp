@@ -30,6 +30,8 @@ struct TextureInfo
     GLuint textureID;
     int imageWidth, imageHeight;
     float fullWidthProportion, fullHeightProportion;
+    // SR addition: the flag for vertial flip necessity on rendering.
+    bool vFlipped;
 };
 
 //==============================================================================
@@ -71,6 +73,7 @@ struct CachedImageList  : public ReferenceCountedObject,
                 t.imageHeight = image.getHeight();
                 t.fullWidthProportion  = 1.0f;
                 t.fullHeightProportion = 1.0f;
+                t.vFlipped = false;
 
                 return t;
             }
@@ -113,6 +116,7 @@ struct CachedImageList  : public ReferenceCountedObject,
             t.imageHeight = pixelData->height;
             t.fullWidthProportion  = t.imageWidth  / (float) texture.getWidth();
             t.fullHeightProportion = t.imageHeight / (float) texture.getHeight();
+            t.vFlipped = true;
 
             lastUsed = Time::getCurrentTime();
 
@@ -660,10 +664,21 @@ public:
                         const float targetX, const float targetY,
                         bool isForTiling) const
         {
-            setMatrix (trans,
-                       textureInfo.imageWidth, textureInfo.imageHeight,
-                       textureInfo.fullWidthProportion, textureInfo.fullHeightProportion,
-                       targetX, targetY, isForTiling);
+            if( textureInfo.vFlipped )
+            {
+                AffineTransform trx = AffineTransform::verticalFlip(textureInfo.imageHeight).followedBy(trans);
+                setMatrix (trx,
+                           textureInfo.imageWidth, textureInfo.imageHeight,
+                           textureInfo.fullWidthProportion, textureInfo.fullHeightProportion,
+                           targetX, targetY, isForTiling);
+            }
+            else
+            {
+                setMatrix (trans,
+                           textureInfo.imageWidth, textureInfo.imageHeight,
+                           textureInfo.fullWidthProportion, textureInfo.fullHeightProportion,
+                           targetX, targetY, isForTiling);
+            }
         }
 
         OpenGLShaderProgram::Uniform imageTexture, matrix, imageLimits;
@@ -1645,9 +1660,7 @@ public:
                                  const AffineTransform& trans, Graphics::ResamplingQuality, bool tiledFill) const
     {
         state->shaderQuadQueue.flush();
-        // SR addition: Images should be flipped vertically.
-        AffineTransform flipTrx = AffineTransform::verticalFlip(src.getHeight()).followedBy(trans);
-        state->setShaderForTiledImageFill (state->cachedImageList->getTextureFor (src), flipTrx, 0, nullptr, tiledFill);
+        state->setShaderForTiledImageFill (state->cachedImageList->getTextureFor (src), trans, 0, nullptr, tiledFill);
 
         state->shaderQuadQueue.add (iter, PixelARGB ((uint8) alpha, (uint8) alpha, (uint8) alpha, (uint8) alpha));
         state->shaderQuadQueue.flush();
