@@ -238,6 +238,7 @@ public:
             {
                 CVDisplayLinkStop(displayLinkRef);
                 CVDisplayLinkRelease(displayLinkRef);
+                displayLinkRef = NULL;
             }
             displayLinkTarget = target;
         }
