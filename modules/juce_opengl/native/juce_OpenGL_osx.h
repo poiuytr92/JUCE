@@ -30,7 +30,13 @@ public:
                    void* contextToShare,
                    bool /*useMultisampling*/,
                    OpenGLVersion version)
-        : lastSwapTime (0), minSwapTimeMs (0), underrunCounter (0)
+        : lastSwapTime (0)
+        , minSwapTimeMs (0)
+        , underrunCounter (0)
+#if JUCE_MAC
+        , displayLinkTarget(nullptr)
+        , displayLinkRef(NULL)
+#endif
     {
         (void) version;
 
@@ -71,6 +77,10 @@ public:
 
         renderContext = [[[NSOpenGLContext alloc] initWithFormat: format
                                                     shareContext: (NSOpenGLContext*) contextToShare] autorelease];
+
+        GLint val = 1;
+        [renderContext setValues: &val
+                    forParameter: NSOpenGLCPSurfaceOpacity];
 
         [view setOpenGLContext: renderContext];
         [format release];
@@ -190,11 +200,60 @@ public:
         }
     }
 
+#if JUCE_MAC
+
+    class DisplayLinkTarget
+    {
+    public:
+        DisplayLinkTarget() {}
+        virtual ~DisplayLinkTarget() {}
+        virtual void displayLink() = 0;
+    };
+    
+    static CVReturn displayLinkOutputCallback(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow, const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext)
+    {
+        OpenGLContext::NativeContext::DisplayLinkTarget* _this = (OpenGLContext::NativeContext::DisplayLinkTarget*)displayLinkContext;
+        jassert(_this != nullptr);
+        _this->displayLink();
+        return kCVReturnSuccess;
+    }
+    
+    void setDisplayLinkTarget(DisplayLinkTarget* target)
+    {
+        if( target != nullptr )
+        {
+            if( displayLinkRef == NULL )
+            {
+                CGDirectDisplayID displayID = CGMainDisplayID();
+                CVDisplayLinkCreateWithCGDisplay(displayID, &displayLinkRef);
+                CVDisplayLinkSetOutputCallback(displayLinkRef, displayLinkOutputCallback, target);
+                CVDisplayLinkSetCurrentCGDisplayFromOpenGLContext(displayLinkRef, (CGLContextObj) [renderContext CGLContextObj], (CGLPixelFormatObj) [[renderContext pixelFormat] CGLPixelFormatObj]);
+            }
+            displayLinkTarget = target;
+            CVDisplayLinkStart(displayLinkRef);
+        }
+        else
+        {
+            if( displayLinkRef != NULL )
+            {
+                CVDisplayLinkStop(displayLinkRef);
+                CVDisplayLinkRelease(displayLinkRef);
+            }
+            displayLinkTarget = target;
+        }
+    }
+    
+#endif
+
     NSOpenGLContext* renderContext;
     NSOpenGLView* view;
     ReferenceCountedObjectPtr<ReferenceCountedObject> viewAttachment;
     double lastSwapTime;
     int minSwapTimeMs, underrunCounter;
+#if JUCE_MAC
+    DisplayLinkTarget* displayLinkTarget;
+    CVDisplayLinkRef displayLinkRef;
+#endif
 
     //==============================================================================
     struct MouseForwardingNSOpenGLViewClass  : public ObjCClass <NSOpenGLView>

@@ -24,6 +24,9 @@
 
 class OpenGLContext::CachedImage  : public CachedComponentImage,
                                     public Thread
+#if JUCE_MAC
+                                    , public OpenGLContext::NativeContext::DisplayLinkTarget
+#endif
 {
 public:
     CachedImage (OpenGLContext& c, Component& comp,
@@ -331,6 +334,14 @@ public:
     }
 
     //==============================================================================
+    
+#if JUCE_MAC
+    void displayLink() override
+    {
+        renderFrame();
+    }
+#endif
+    
     void run() override
     {
         {
@@ -343,10 +354,17 @@ public:
         initialiseOnThread();
 
         hasInitialised = true;
-
+        
+#if JUCE_MAC
+        if( context.continuousRepaint )
+        {
+            nativeContext->setDisplayLinkTarget(this);
+        }
+#endif
+        
         while (! threadShouldExit())
         {
-           #if JUCE_IOS
+#if JUCE_IOS
             // NB: on iOS, all GL calls will crash when the app is running
             // in the background..
             if (! Process::isForegroundProcess())
@@ -354,14 +372,22 @@ public:
                 wait (500);
                 continue;
             }
-           #endif
-
+#endif
+            
+#if JUCE_MAC
+            wait (-1);
+#else
             if (! renderFrame())
                 wait (5); // failed to render, so avoid a tight fail-loop.
             else if (! context.continuousRepaint)
                 wait (-1);
+#endif
         }
-
+        
+#if JUCE_MAC
+        nativeContext->setDisplayLinkTarget(nullptr);
+#endif
+        
         shutdownOnThread();
     }
 
