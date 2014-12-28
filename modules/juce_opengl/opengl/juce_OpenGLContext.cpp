@@ -364,7 +364,7 @@ public:
         
         while (! threadShouldExit())
         {
-#if JUCE_IOS
+           #if JUCE_IOS
             // NB: on iOS, all GL calls will crash when the app is running
             // in the background..
             if (! Process::isForegroundProcess())
@@ -372,16 +372,19 @@ public:
                 wait (500);
                 continue;
             }
-#endif
-            
-#if JUCE_MAC
-            wait (-1);
-#else
+           #endif
+
+           #if JUCE_MAC
+            if (context.continuousRepaint)
+                wait (-1); // Rendering occurs in CVDisplayLink
+            else if (! renderFrame())
+                wait (5); // failed to render, so avoid a tight fail-loop.
+           #else
             if (! renderFrame())
                 wait (5); // failed to render, so avoid a tight fail-loop.
             else if (! context.continuousRepaint)
                 wait (-1);
-#endif
+           #endif
         }
         
 #if JUCE_MAC
