@@ -23,10 +23,10 @@
 */
 
 class OpenGLContext::CachedImage  : public CachedComponentImage,
+                                   #if JUCE_MAC
+                                    public OpenGLContext::NativeContext::DisplayLinkTarget,
+                                   #endif
                                     public Thread
-#if JUCE_MAC
-                                    , public OpenGLContext::NativeContext::DisplayLinkTarget
-#endif
 {
 public:
     CachedImage (OpenGLContext& c, Component& comp,
@@ -335,12 +335,12 @@ public:
 
     //==============================================================================
     
-#if JUCE_MAC
+   #if JUCE_MAC
     void displayLink() override
     {
         renderFrame();
     }
-#endif
+   #endif
     
     void run() override
     {
@@ -355,12 +355,12 @@ public:
 
         hasInitialised = true;
         
-#if JUCE_MAC
-        if( context.continuousRepaint )
+       #if JUCE_MAC
+        if (context.continuousRepaint)
         {
-            nativeContext->setDisplayLinkTarget(this);
+            nativeContext->setDisplayLinkTarget (this);
         }
-#endif
+       #endif
         
         while (! threadShouldExit())
         {
@@ -387,9 +387,9 @@ public:
            #endif
         }
         
-#if JUCE_MAC
-        nativeContext->setDisplayLinkTarget(nullptr);
-#endif
+       #if JUCE_MAC
+        nativeContext->setDisplayLinkTarget (nullptr);
+       #endif
         
         shutdownOnThread();
     }

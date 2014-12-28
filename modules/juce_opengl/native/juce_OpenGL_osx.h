@@ -30,11 +30,8 @@ public:
                    void* contextToShare,
                    bool /*useMultisampling*/,
                    OpenGLVersion version)
-        : lastSwapTime (0)
-        , minSwapTimeMs (0)
-        , underrunCounter (0)
-        , displayLinkTarget(nullptr)
-        , displayLinkRef(NULL)
+        : lastSwapTime (0), minSwapTimeMs (0), underrunCounter (0)
+        , displayLinkTarget (nullptr), displayLinkRef (nullptr)
     {
         (void) version;
 
@@ -206,38 +203,37 @@ public:
         virtual void displayLink() = 0;
     };
     
-    static CVReturn displayLinkOutputCallback(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow, const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext)
+    static CVReturn displayLinkOutputCallback (CVDisplayLinkRef displayLink, const CVTimeStamp *inNow, const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext)
     {
-        OpenGLContext::NativeContext::DisplayLinkTarget* _this = (OpenGLContext::NativeContext::DisplayLinkTarget*)displayLinkContext;
-        jassert(_this != nullptr);
-        _this->displayLink();
+        DisplayLinkTarget* target = (DisplayLinkTarget*) displayLinkContext;
+        jassert (target != nullptr);
+        target->displayLink();
         return kCVReturnSuccess;
     }
     
-    void setDisplayLinkTarget(DisplayLinkTarget* target)
+    void setDisplayLinkTarget (DisplayLinkTarget* target)
     {
-        if( target != nullptr )
+        if (target == nullptr)
         {
-            if( displayLinkRef == NULL )
+            if (displayLinkRef != nullptr)
             {
-                CGDirectDisplayID displayID = CGMainDisplayID();
-                CVDisplayLinkCreateWithCGDisplay(displayID, &displayLinkRef);
-                CVDisplayLinkSetOutputCallback(displayLinkRef, displayLinkOutputCallback, target);
-                CVDisplayLinkSetCurrentCGDisplayFromOpenGLContext(displayLinkRef, (CGLContextObj) [renderContext CGLContextObj], (CGLPixelFormatObj) [[renderContext pixelFormat] CGLPixelFormatObj]);
+                CVDisplayLinkStop (displayLinkRef);
+                CVDisplayLinkRelease (displayLinkRef);
+                displayLinkRef = nullptr;
             }
-            displayLinkTarget = target;
-            CVDisplayLinkStart(displayLinkRef);
+            displayLinkTarget = nullptr;
+            return;
         }
-        else
+
+        if (displayLinkRef == nullptr)
         {
-            if( displayLinkRef != NULL )
-            {
-                CVDisplayLinkStop(displayLinkRef);
-                CVDisplayLinkRelease(displayLinkRef);
-                displayLinkRef = NULL;
-            }
-            displayLinkTarget = target;
+            CGDirectDisplayID displayID = CGMainDisplayID();
+            CVDisplayLinkCreateWithCGDisplay (displayID, &displayLinkRef);
+            CVDisplayLinkSetOutputCallback (displayLinkRef, displayLinkOutputCallback, target);
+            CVDisplayLinkSetCurrentCGDisplayFromOpenGLContext (displayLinkRef, (CGLContextObj) [renderContext CGLContextObj], (CGLPixelFormatObj) [[renderContext pixelFormat] CGLPixelFormatObj]);
         }
+        displayLinkTarget = target;
+        CVDisplayLinkStart (displayLinkRef);
     }
     
     NSOpenGLContext* renderContext;
