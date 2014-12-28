@@ -1171,7 +1171,11 @@ struct StateHelpers
             context.extensions.glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, buffers[0]);
             context.extensions.glBufferData (GL_ELEMENT_ARRAY_BUFFER, sizeof (indexData), indexData, GL_STATIC_DRAW);
             context.extensions.glBindBuffer (GL_ARRAY_BUFFER, buffers[1]);
+#if JUCE_MAC
+            context.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof (vertexData), NULL, GL_STATIC_DRAW);
+#else
             context.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof (vertexData), vertexData, GL_STREAM_DRAW);
+#endif
             JUCE_CHECK_OPENGL_ERROR
         }
 
@@ -1261,6 +1265,10 @@ struct StateHelpers
             glDrawElements (GL_TRIANGLES, (numVertices * 3) / 2, GL_UNSIGNED_SHORT, 0);
             JUCE_CHECK_OPENGL_ERROR
             numVertices = 0;
+#if JUCE_MAC
+            // Under MacOS it appears to be worth to reallocate vertex buffer to prevent stalls on waiting for the rendering done. 
+            context.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof (vertexData), NULL, GL_STATIC_DRAW);
+#endif
         }
 
         JUCE_DECLARE_NON_COPYABLE (ShaderQuadQueue)
