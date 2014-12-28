@@ -33,10 +33,8 @@ public:
         : lastSwapTime (0)
         , minSwapTimeMs (0)
         , underrunCounter (0)
-#if JUCE_MAC
         , displayLinkTarget(nullptr)
         , displayLinkRef(NULL)
-#endif
     {
         (void) version;
 
@@ -200,8 +198,6 @@ public:
         }
     }
 
-#if JUCE_MAC
-
     class DisplayLinkTarget
     {
     public:
@@ -244,17 +240,13 @@ public:
         }
     }
     
-#endif
-
     NSOpenGLContext* renderContext;
     NSOpenGLView* view;
     ReferenceCountedObjectPtr<ReferenceCountedObject> viewAttachment;
     double lastSwapTime;
     int minSwapTimeMs, underrunCounter;
-#if JUCE_MAC
     DisplayLinkTarget* displayLinkTarget;
     CVDisplayLinkRef displayLinkRef;
-#endif
 
     //==============================================================================
     struct MouseForwardingNSOpenGLViewClass  : public ObjCClass <NSOpenGLView>
