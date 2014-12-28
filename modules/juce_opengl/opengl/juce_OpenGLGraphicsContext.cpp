@@ -1266,7 +1266,7 @@ struct StateHelpers
             JUCE_CHECK_OPENGL_ERROR
             numVertices = 0;
 #if JUCE_MAC
-            // Under MacOS it appears to be worth to reallocate vertex buffer to prevent stalls on waiting for the rendering done. 
+            // Under MacOS it appears to be worth to reallocate vertex buffer to prevent stalls on waiting for the rendering done.
             context.extensions.glBufferData (GL_ARRAY_BUFFER, sizeof (vertexData), NULL, GL_STATIC_DRAW);
 #endif
         }
