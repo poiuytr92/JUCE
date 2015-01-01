@@ -22,16 +22,21 @@
   ==============================================================================
 */
 
-class OpenGLContext::CachedImage  : public CachedComponentImage,
-                                   #if JUCE_MAC
-                                    public OpenGLContext::NativeContext::DisplayLinkTarget,
-                                   #endif
-                                    public Thread
+class OpenGLContext::CachedImage  : public CachedComponentImage
+                                 #if JUCE_MAC
+                                  , public OpenGLContext::NativeContext::DisplayLinkTarget
+                                 #endif
+                                 #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
+                                  , private Thread
+                                 #endif
 {
 public:
     CachedImage (OpenGLContext& c, Component& comp,
                  const OpenGLPixelFormat& pixFormat, void* contextToShare)
-        : Thread ("OpenGL Rendering"),
+        :
+         #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
+          Thread ("OpenGL Rendering"),
+         #endif
           context (c), component (comp),
           scale (1.0),
          #if JUCE_OPENGL3
@@ -61,7 +66,7 @@ public:
 
     void start()
     {
-       #if ! JUCE_ANDROID
+       #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
         if (nativeContext != nullptr)
             startThread (6);
        #endif
@@ -69,7 +74,7 @@ public:
 
     void stop()
     {
-       #if ! JUCE_ANDROID
+       #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
         stopThread (10000);
        #endif
         hasInitialised = false;
@@ -98,11 +103,11 @@ public:
     {
         needsUpdate = 1;
 
-       #if JUCE_ANDROID
+       #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
+        notify();
+       #else
         if (nativeContext != nullptr)
             nativeContext->triggerRepaint();
-       #else
-        notify();
        #endif
     }
 
@@ -154,9 +159,19 @@ public:
         {
             // This avoids hogging the message thread when doing intensive rendering.
             if (lastMMLockReleaseTime + 1 >= Time::getMillisecondCounter())
+            {
+               #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
                 wait (2);
+               #else
+                Thread::sleep (2);
+               #endif
+            }
 
+           #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
             mmLock = new MessageManagerLock (this);  // need to acquire this before locking the context.
+           #else
+            mmLock = new MessageManagerLock (Thread::getCurrentThread());
+           #endif
             if (! mmLock->lockWasGained())
                 return false;
 
@@ -334,7 +349,6 @@ public:
     }
 
     //==============================================================================
-    
    #if JUCE_MAC
     void displayLink() override
     {
@@ -342,6 +356,7 @@ public:
     }
    #endif
     
+   #if JUCE_OPENGL_CREATE_JUCE_RENDER_THREAD
     void run() override
     {
         {
@@ -393,6 +408,7 @@ public:
         
         shutdownOnThread();
     }
+   #endif
 
     void initialiseOnThread()
     {
@@ -472,36 +488,6 @@ public:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CachedImage)
 };
-
-//==============================================================================
-#if JUCE_ANDROID
-void OpenGLContext::NativeContext::contextCreatedCallback()
-{
-    isInsideGLCallback = true;
-
-    if (CachedImage* const c = CachedImage::get (component))
-        c->initialiseOnThread();
-    else
-        jassertfalse;
-
-    isInsideGLCallback = false;
-}
-
-void OpenGLContext::NativeContext::renderCallback()
-{
-    isInsideGLCallback = true;
-
-    if (CachedImage* const c = CachedImage::get (component))
-    {
-        if (c->context.continuousRepaint)
-            c->context.triggerRepaint();
-
-        c->renderFrame();
-    }
-
-    isInsideGLCallback = false;
-}
-#endif
 
 //==============================================================================
 class OpenGLContext::Attachment  : public ComponentMovementWatcher,
@@ -982,3 +968,33 @@ void OpenGLContext::copyTexture (const Rectangle<int>& targetClipArea,
 
     JUCE_CHECK_OPENGL_ERROR
 }
+
+//==============================================================================
+#if JUCE_ANDROID
+void OpenGLContext::NativeContext::contextCreatedCallback()
+{
+    isInsideGLCallback = true;
+
+    if (CachedImage* const c = CachedImage::get (component))
+        c->initialiseOnThread();
+    else
+        jassertfalse;
+
+    isInsideGLCallback = false;
+}
+
+void OpenGLContext::NativeContext::renderCallback()
+{
+    isInsideGLCallback = true;
+
+    if (CachedImage* const c = CachedImage::get (component))
+    {
+        if (c->context.continuousRepaint)
+            c->context.triggerRepaint();
+
+        c->renderFrame();
+    }
+
+    isInsideGLCallback = false;
+}
+#endif
