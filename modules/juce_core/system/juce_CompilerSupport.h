@@ -40,6 +40,7 @@
  #define JUCE_COMPILER_SUPPORTS_NOEXCEPT 1
  #define JUCE_COMPILER_SUPPORTS_NULLPTR 1
  #define JUCE_COMPILER_SUPPORTS_MOVE_SEMANTICS 1
+ #define JUCE_COMPILER_SUPPORTS_INITIALIZER_LISTS 1
 
  #if (__GNUC__ * 100 + __GNUC_MINOR__) >= 407 && ! defined (JUCE_COMPILER_SUPPORTS_OVERRIDE_AND_FINAL)
   #define JUCE_COMPILER_SUPPORTS_OVERRIDE_AND_FINAL 1
@@ -73,11 +74,18 @@
   #define JUCE_DELETED_FUNCTION = delete
  #endif
 
- #if __has_feature (cxx_lambdas) \
-      && ((JUCE_MAC && defined (MAC_OS_X_VERSION_10_8) && MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_8) \
-           || (JUCE_IOS && defined (__IPHONE_7_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_7_0) \
-           || ! (JUCE_MAC || JUCE_IOS))
+ #if (JUCE_MAC && defined (MAC_OS_X_VERSION_10_8) && MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_8) \
+       || (JUCE_IOS && defined (__IPHONE_7_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_7_0) \
+       || ! (JUCE_MAC || JUCE_IOS)
+  #define JUCE_NOT_OSX10_8_OR_EARLIER 1
+ #endif
+
+ #if __has_feature (cxx_lambdas) && JUCE_NOT_OSX10_8_OR_EARLIER
   #define JUCE_COMPILER_SUPPORTS_LAMBDAS 1
+ #endif
+
+ #if __has_feature (cxx_generalized_initializers) && JUCE_NOT_OSX10_8_OR_EARLIER
+  #define JUCE_COMPILER_SUPPORTS_INITIALIZER_LISTS 1
  #endif
 
  #ifndef JUCE_COMPILER_SUPPORTS_OVERRIDE_AND_FINAL
@@ -87,6 +95,7 @@
  #ifndef JUCE_COMPILER_SUPPORTS_ARC
   #define JUCE_COMPILER_SUPPORTS_ARC 1
  #endif
+
 #endif
 
 //==============================================================================
@@ -100,6 +109,10 @@
  #if _MSC_VER >= 1700
   #define JUCE_COMPILER_SUPPORTS_OVERRIDE_AND_FINAL 1
   #define JUCE_COMPILER_SUPPORTS_LAMBDAS 1
+ #endif
+
+ #if _MSC_VER >= 1800
+  #define JUCE_COMPILER_SUPPORTS_INITIALIZER_LISTS 1
  #endif
 
  #if _MSC_VER >= 1900
