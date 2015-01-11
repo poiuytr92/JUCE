@@ -266,7 +266,8 @@ public:
          processTempBuffer (1, 1),
          hostWindow (0)
     {
-        filter->setPlayConfigDetails (numInChans, numOutChans, 0, 0);
+        filter->setPlayConfigDetails (1, numInChans, 1, numOutChans, 0, 0);
+        filter->setInputElementActive(0, true);
         filter->setPlayHead (this);
         filter->addListener (this);
 
@@ -673,7 +674,8 @@ public:
             firstProcessCallback = true;
 
             filter->setNonRealtime (getCurrentProcessLevel() == 4 /* kVstProcessLevelOffline */);
-            filter->setPlayConfigDetails (numInChans, numOutChans, rate, currentBlockSize);
+            filter->setPlayConfigDetails (1, numInChans, 1, numOutChans, rate, currentBlockSize);
+            filter->setInputElementActive(0, true);
 
             deleteTempChannels();
 
@@ -929,17 +931,19 @@ public:
                 numInChans  = pluginInput->numChannels;
                 numOutChans = pluginOutput->numChannels;
 
-                filter->setPlayConfigDetails (numInChans, numOutChans,
+                filter->setPlayConfigDetails (1, numInChans, 1, numOutChans,
                                               filter->getSampleRate(),
                                               filter->getBlockSize());
+                filter->setInputElementActive(0, true);
 
-                filter->setSpeakerArrangement (getSpeakerArrangementString (speakerIn),
-                                               getSpeakerArrangementString (speakerOut));
+                filter->setInputSpeakerArrangement (getSpeakerArrangementString (speakerIn));
+                filter->setOutputSpeakerArrangement (getSpeakerArrangementString (speakerOut));
                 return true;
             }
         }
 
-        filter->setSpeakerArrangement (String::empty, String::empty);
+        filter->setInputSpeakerArrangement (String::empty);
+        filter->setOutputSpeakerArrangement (String::empty);
         return false;
     }
 
@@ -1495,7 +1499,7 @@ private:
         tempChannels.clear();
 
         if (filter != nullptr)
-            tempChannels.insertMultiple (0, nullptr, filter->getNumInputChannels() + filter->getNumOutputChannels());
+            tempChannels.insertMultiple (0, nullptr, filter->getNumInputChannelsTotal(false) + filter->getNumOutputChannelsTotal());
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JuceVSTWrapper)
