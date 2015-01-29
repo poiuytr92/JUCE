@@ -465,7 +465,20 @@ public:
         SFicPlugInStemFormats stems;
         GetProcessType()->GetStemFormats (&stems);
 
-        juceFilter->setPlayConfigDetails (fNumInputs, fNumOutputs, sampleRate, maxBlockSize);
+        Array<int> numChannelsPerInputElement;
+        numChannelsPerInputElement.add(fNumInputs);
+       #if JucePlugin_AcceptsSideChain
+        numChannelsPerInputElement.add(1);
+       #endif
+        
+        Array<int> numChannelsPerOutputElement;
+        numChannelsPerOutputElement.add(fNumOutputs);
+
+        juceFilter->setPlayConfigDetails (numChannelsPerInputElement, numChannelsPerOutputElement, sampleRate, maxBlockSize);
+        juceFilter->setInputElementActive(0, true);
+       #if JucePlugin_AcceptsSideChain
+        juceFilter->setInputElementActive(1, false);
+       #endif
 
         AddControl (new CPluginControl_OnOff ('bypa', "Master Bypass\nMastrByp\nMByp\nByp", false, true));
         DefineMasterBypassControlIndex (bypassControlIndex);
@@ -498,8 +511,8 @@ public:
         midiTransport = new CEffectMIDITransport (&mMIDIWorld);
         midiEvents.ensureSize (2048);
 
-        channels.calloc (jmax (juceFilter->getNumInputChannels(),
-                               juceFilter->getNumOutputChannels()));
+        channels.calloc (jmax (juceFilter->getNumInputChannelsTotal(false),
+                               juceFilter->getNumOutputChannelsTotal()));
 
         juceFilter->setPlayHead (this);
         juceFilter->addListener (this);
@@ -545,8 +558,8 @@ public:
         {
             const ScopedLock sl (juceFilter->getCallbackLock());
 
-            const int numIn = juceFilter->getNumInputChannels();
-            const int numOut = juceFilter->getNumOutputChannels();
+            const int numIn = juceFilter->getNumInputChannelsTotal(true);
+            const int numOut = juceFilter->getNumOutputChannelsTotal();
             const int totalChans = jmax (numIn, numOut);
 
             if (juceFilter->isSuspended())
@@ -601,6 +614,29 @@ public:
         }
     }
 
+#if JucePlugin_AcceptsSideChain
+    //==============================================================================
+    virtual ComponentResult ConnectInput(long portNum, long connection) override {
+        ComponentResult ret = CEffectProcessRTAS::ConnectInput(portNum, connection);
+
+        // Check if side chain was just connected
+        if (portNum == fNumInputs && ret == noErr) {
+            juceFilter->setInputElementActive (portNum, true);
+        }
+        return ret;
+    }
+    
+    virtual ComponentResult DisconnectInput(long portNum) override {
+        ComponentResult ret = CEffectProcessRTAS::DisconnectInput(portNum);
+
+        // Check if side chain was just disconnected
+        if (portNum == fNumInputs && ret == noErr) {
+            juceFilter->setInputElementActive (portNum, false);
+        }
+        return ret;
+    }
+#endif
+    
     //==============================================================================
     ComponentResult GetChunkSize (OSType chunkID, long* size) override
     {
@@ -915,6 +951,10 @@ public:
 
                #if JucePlugin_RTASDisableMultiMono
                 type->AddGestalt (pluginGestalt_DoesntSupportMultiMono);
+               #endif
+
+               #if JucePlugin_AcceptsSideChain
+                type->AddGestalt (pluginGestalt_SideChainInput);
                #endif
 
                 type->AddGestalt (pluginGestalt_SupportsVariableQuanta);
