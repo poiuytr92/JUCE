@@ -551,18 +551,17 @@ public:
 
         @see getDoubleClickReturnValue
     */
-    void setDoubleClickReturnValue (bool shouldDoubleClickBeEnabled,
+    void setDoubleClickReturnValue (bool isDoubleClickEnabled,
                                     double valueToSetOnDoubleClick);
 
     /** Returns the values last set by setDoubleClickReturnValue() method.
-        @see setDoubleClickReturnValue
-    */
-    double getDoubleClickReturnValue() const noexcept;
 
-    /** Returns true if double-clicking to reset to a default value is enabled.
+        Sets isEnabled to true if double-click is enabled, and returns the value
+        that was set.
+
         @see setDoubleClickReturnValue
     */
-    bool isDoubleClickReturnEnabled() const noexcept;
+    double getDoubleClickReturnValue (bool& isEnabled) const;
 
     //==============================================================================
     /** Tells the slider whether to keep sending change messages while the user
