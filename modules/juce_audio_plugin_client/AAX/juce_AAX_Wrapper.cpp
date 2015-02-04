@@ -210,10 +210,6 @@ struct AAXClasses
         float** outputChannels;
         int32_t* bufferSize;
         int32_t* bypass;
-        
-       #if JucePlugin_AcceptsSideChain
-        int32_t* sideChain;
-       #endif
 
        #if JucePlugin_WantsMidiInput
         AAX_IMIDINode* midiNodeIn;
@@ -235,10 +231,6 @@ struct AAXClasses
             outputChannels  = AAX_FIELD_INDEX (JUCEAlgorithmContext, outputChannels),
             bufferSize      = AAX_FIELD_INDEX (JUCEAlgorithmContext, bufferSize),
             bypass          = AAX_FIELD_INDEX (JUCEAlgorithmContext, bypass),
-
-           #if JucePlugin_AcceptsSideChain
-            sideChain       = AAX_FIELD_INDEX (JUCEAlgorithmContext, sideChain),
-           #endif
 
            #if JucePlugin_WantsMidiInput
             midiNodeIn      = AAX_FIELD_INDEX (JUCEAlgorithmContext, midiNodeIn),
@@ -733,15 +725,7 @@ struct AAXClasses
         AAX_Result NotificationReceived (AAX_CTypeID type, const void* data, uint32_t size) override
         {
             if (type == AAX_eNotificationEvent_EnteringOfflineMode)  pluginInstance->setNonRealtime (true);
-            else if (type == AAX_eNotificationEvent_ExitingOfflineMode)   pluginInstance->setNonRealtime (false);
-
-           #if JucePlugin_AcceptsSideChain
-            else if (type == AAX_eNotificationEvent_SideChainBeingConnected || type == AAX_eNotificationEvent_SideChainBeingDisconnected)
-            {
-                AudioProcessor& processor = getPluginInstance();
-                processor.setInputElementActive(1, type == AAX_eNotificationEvent_SideChainBeingConnected);
-            }
-           #endif
+            if (type == AAX_eNotificationEvent_ExitingOfflineMode)   pluginInstance->setNonRealtime (false);
 
             return AAX_CEffectParameters::NotificationReceived (type, data, size);
         }
@@ -749,8 +733,8 @@ struct AAXClasses
         void process (const float* const* inputs, float* const* outputs, const int bufferSize,
                       const bool bypass, AAX_IMIDINode* midiNodeIn, AAX_IMIDINode* midiNodesOut)
         {
-            const int numIns  = pluginInstance->getNumInputChannelsTotal(true);
-            const int numOuts = pluginInstance->getNumOutputChannelsTotal();
+            const int numIns  = pluginInstance->getNumInputChannels();
+            const int numOuts = pluginInstance->getNumOutputChannels();
 
             if (numOuts >= numIns)
             {
@@ -812,8 +796,8 @@ struct AAXClasses
                 if (lastBufferSize != bufferSize)
                 {
                     lastBufferSize = bufferSize;
-                    pluginInstance->setPlayConfigDetails (pluginInstance->getNumChannelsPerInputElement(),
-                                                          pluginInstance->getNumChannelsPerOutputElement(),
+                    pluginInstance->setPlayConfigDetails (pluginInstance->getNumInputChannels(),
+                                                          pluginInstance->getNumOutputChannels(),
                                                           sampleRate, bufferSize);
                     pluginInstance->prepareToPlay (sampleRate, bufferSize);
                 }
@@ -905,33 +889,17 @@ struct AAXClasses
             AAX_EStemFormat inputStemFormat = AAX_eStemFormat_None;
             check (Controller()->GetInputStemFormat (&inputStemFormat));
             const int numberOfInputChannels = getNumChannelsForStemFormat (inputStemFormat);
-            
+
             AAX_EStemFormat outputStemFormat = AAX_eStemFormat_None;
             check (Controller()->GetOutputStemFormat (&outputStemFormat));
             const int numberOfOutputChannels = getNumChannelsForStemFormat (outputStemFormat);
 
-            Array<int> numChannelsPerInputElement;
-            numChannelsPerInputElement.add(numberOfInputChannels);
-           #if JucePlugin_AcceptsSideChain
-            numChannelsPerInputElement.add(1); // AAX only supports mono side-chain
-           #endif
-            
-            Array<int> numChannelsPerOutputElement;
-            numChannelsPerOutputElement.add(numberOfOutputChannels);
-            
             AudioProcessor& audioProcessor = getPluginInstance();
-            audioProcessor.setPlayConfigDetails (numChannelsPerInputElement, numChannelsPerOutputElement, sampleRate, lastBufferSize);
-            audioProcessor.setInputElementActive(0, true);
-           #if JucePlugin_AcceptsSideChain
-            audioProcessor.setInputElementActive(1, false);
-           #endif
 
-            audioProcessor.setInputSpeakerArrangement (getSpeakerArrangementString (inputStemFormat));
-           #if JucePluginAcceptsSideChain
-            audioProcessor.setInputSpeakerArrangement (getSpeakerArrangementString (AAX_eStemFormat_Mono), 1);
-           #endif
-            audioProcessor.setOutputSpeakerArrangement (getSpeakerArrangementString (outputStemFormat));
-            
+            audioProcessor.setSpeakerArrangement (getSpeakerArrangementString (inputStemFormat),
+                                                  getSpeakerArrangementString (outputStemFormat));
+
+            audioProcessor.setPlayConfigDetails (numberOfInputChannels, numberOfOutputChannels, sampleRate, lastBufferSize);
             audioProcessor.prepareToPlay (sampleRate, lastBufferSize);
 
             check (Controller()->SetSignalLatency (audioProcessor.getLatencySamples()));
@@ -1006,10 +974,6 @@ struct AAXClasses
         check (desc.AddAudioBufferLength (JUCEAlgorithmIDs::bufferSize));
         check (desc.AddDataInPort (JUCEAlgorithmIDs::bypass, sizeof (int32_t)));
 
-       #if JucePlugin_AcceptsSideChain
-        check (desc.AddSideChainIn(JUCEAlgorithmIDs::sideChain));
-       #endif
-
        #if JucePlugin_WantsMidiInput
         check (desc.AddMIDINode (JUCEAlgorithmIDs::midiNodeIn, AAX_eMIDINodeType_LocalInput,
                                  JucePlugin_Name, 0xffff));
@@ -1037,10 +1001,6 @@ struct AAXClasses
 
         properties->AddProperty (AAX_eProperty_InputStemFormat,     getFormatForChans (numInputs));
         properties->AddProperty (AAX_eProperty_OutputStemFormat,    getFormatForChans (numOutputs));
-
-       #if JucePlugin_AcceptsSideChain
-        properties->AddProperty (AAX_eProperty_SupportsSideChainInput, true);
-       #endif
 
         // This value needs to match the RTAS wrapper's Type ID, so that
         // the host knows that the RTAS/AAX plugins are equivalent.

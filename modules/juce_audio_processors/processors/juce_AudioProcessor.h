@@ -169,8 +169,6 @@ public:
 
     //==============================================================================
     /** Returns the number of input channels that the host will be sending the filter.
-        By default, the number of channels sent through the main input element is returned.
-        Specify another input element index to get its number of channels.
 
         If writing a plugin, your configuration macros should specify the number of
         channels that your filter would prefer to have, and this method lets
@@ -179,11 +177,9 @@ public:
         Note that this method is only valid during or after the prepareToPlay()
         method call. Until that point, the number of channels will be unknown.
     */
-    int getNumInputChannels(int elementIndex = 0) const noexcept { return numChannelsPerInputElement[elementIndex]; }
-    
-    /** Returns the number of output channels that the filter will be sending the host.
-        By default, the number of channels sent through the main output element is returned.
-        Specify another output element index to get its number of channels.
+    int getNumInputChannels() const noexcept                    { return numInputChannels; }
+
+    /** Returns the number of output channels that the host will be sending the filter.
 
         If writing a plugin, your configuration macros should specify the number of
         channels that your filter would prefer to have, and this method lets
@@ -192,53 +188,21 @@ public:
         Note that this method is only valid during or after the prepareToPlay()
         method call. Until that point, the number of channels will be unknown.
     */
-    int getNumOutputChannels(int elementIndex = 0) const noexcept { return numChannelsPerOutputElement[elementIndex]; }
+    int getNumOutputChannels() const noexcept                   { return numOutputChannels; }
 
-    /** Returns the number of input channels that the host will be sending the filter
-        through each input element.
-
-        Note that this method is only valid during or after the prepareToPlay()
-        method call. Until that point, the number of channels will be unknown.
-     */
-    const Array<int>& getNumChannelsPerInputElement() const noexcept { return numChannelsPerInputElement; }
-    
-    /** Returns the number of output channels that the filter will be sending the host
-        through each output element.
-
-        Note that this method is only valid during or after the prepareToPlay()
-        method call. Until that point, the number of channels will be unknown.
-     */
-    const Array<int>& getNumChannelsPerOutputElement() const noexcept { return numChannelsPerOutputElement; }
-
-    /** Returns the total number of input channels the host will be sending the filter
-        through all input elements.
-
-        Note that this method is only valid during or after the prepareToPlay()
-        method call. Until that point, the number of channels will be unknown.
-     */
-    int getNumInputChannelsTotal(bool onlyActive) const noexcept;
-    
-    /** Returns the total number of output channels that the filter will be sending the host
-        through all output elements.
-     
-        Note that this method is only valid during or after the prepareToPlay()
-        method call. Until that point, the number of channels will be unknown.
-     */
-    int getNumOutputChannelsTotal() const noexcept;
-    
     /** Returns a string containing a whitespace-separated list of speaker types
         corresponding to each input channel.
         For example in a 5.1 arrangement, the string may be "L R C Lfe Ls Rs"
         If the speaker arrangement is unknown, the returned string will be empty.
     */
-    const String& getInputSpeakerArrangement(int elementIndex = 0) const noexcept   { return inputSpeakerArrangements.getReference(elementIndex); }
+    const String& getInputSpeakerArrangement() const noexcept   { return inputSpeakerArrangement; }
 
     /** Returns a string containing a whitespace-separated list of speaker types
         corresponding to each output channel.
         For example in a 5.1 arrangement, the string may be "L R C Lfe Ls Rs"
         If the speaker arrangement is unknown, the returned string will be empty.
     */
-    const String& getOutputSpeakerArrangement(int elementIndex = 0) const noexcept  { return outputSpeakerArrangements.getReference(elementIndex); }
+    const String& getOutputSpeakerArrangement() const noexcept  { return outputSpeakerArrangement; }
 
     //==============================================================================
     /** Returns the name of one of the processor's input channels.
@@ -246,20 +210,20 @@ public:
         The processor might not supply very useful names for channels, and this might be
         something like "1", "2", "left", "right", etc.
     */
-    virtual const String getInputChannelName (int channelIndex, int elementIndex = 0) const = 0;
+    virtual const String getInputChannelName (int channelIndex) const = 0;
 
     /** Returns the name of one of the processor's output channels.
 
         The processor might not supply very useful names for channels, and this might be
         something like "1", "2", "left", "right", etc.
     */
-    virtual const String getOutputChannelName (int channelIndex, int elementIndex = 0) const = 0;
+    virtual const String getOutputChannelName (int channelIndex) const = 0;
 
     /** Returns true if the specified channel is part of a stereo pair with its neighbour. */
-    virtual bool isInputChannelStereoPair (int channelIndex, int elementIndex = 0) const = 0;
+    virtual bool isInputChannelStereoPair (int index) const = 0;
 
     /** Returns true if the specified channel is part of a stereo pair with its neighbour. */
-    virtual bool isOutputChannelStereoPair (int channelIndex, int elementIndex = 0) const = 0;
+    virtual bool isOutputChannelStereoPair (int index) const = 0;
 
     /** This returns the number of samples delay that the filter imposes on the audio
         passing through it.
@@ -625,11 +589,8 @@ public:
     */
     virtual void setCurrentProgramStateInformation (const void* data, int sizeInBytes);
 
-    /** This method is called when the input and/or output channels layout changes; that is, either the number of elements or the number of channels in each element. */
-    virtual void inputOutputLayoutChanged();
-
-    /** This method is deprecated. Override inputOutputLayoutChanged instead. */
-    JUCE_DEPRECATED (virtual void numChannelsChanged());
+    /** This method is called when the number of input or output channels is changed. */
+    virtual void numChannelsChanged();
 
     //==============================================================================
     /** Adds a listener that will be called when an aspect of this processor changes. */
@@ -647,24 +608,14 @@ public:
 
     //==============================================================================
     /** This is called by the processor to specify its details before being played. */
-    void setPlayConfigDetails (const Array<int>& numChannelsPerInputElement, const Array<int>& numChannelsPerOutputElement, double sampleRate, int blockSize) noexcept;
+    void setPlayConfigDetails (int numIns, int numOuts, double sampleRate, int blockSize) noexcept;
 
-    /** This is called by the processor to specify its details before being played. */
-    void setPlayConfigDetails (int numInputElements, int numInputChannelsEachElement, int numOutputElements, int numOutputChannelsEachElement, double sampleRate, int blockSize) noexcept;
-
-    /** This is called by the processor as input elements are indicated as active or inactive by the host. */
-    void setInputElementActive (int elementIndex, bool active) noexcept { inputElementsActive.set(elementIndex, active); }
-    bool getInputElementActive (int elementIndex) const noexcept { return inputElementsActive[elementIndex]; }
-    
     //==============================================================================
     /** Not for public use - this is called before deleting an editor component. */
     void editorBeingDeleted (AudioProcessorEditor*) noexcept;
 
     /** Not for public use - this is called to initialise the processor before playing. */
-    void setInputSpeakerArrangement (const String& inputs, int elementIndex = 0);
-
-    /** Not for public use - this is called to initialise the processor before playing. */
-    void setOutputSpeakerArrangement (const String& outputs, int elementIndex = 0);
+    void setSpeakerArrangement (const String& inputs, const String& outputs);
 
     /** Flags to indicate the type of plugin context in which a processor is being used. */
     enum WrapperType
@@ -685,6 +636,7 @@ public:
 
 
     bool m_isInitialized;
+    bool m_hasSideChain; // wrapper fills in if plugin has side-chain
 
     //==============================================================================
     /** Helper function that just converts an xml element into a binary blob.
@@ -719,13 +671,10 @@ private:
     Array<AudioProcessorListener*> listeners;
     Component::SafePointer<AudioProcessorEditor> activeEditor;
     double sampleRate;
-    Array<int> numChannelsPerInputElement, numChannelsPerOutputElement;
-    Array<bool> inputElementsActive;
-    int blockSize, latencySamples;
+    int blockSize, numInputChannels, numOutputChannels, latencySamples;
     bool suspended, nonRealtime;
     CriticalSection callbackLock, listenerLock;
-
-    Array<String> inputSpeakerArrangements, outputSpeakerArrangements;
+    String inputSpeakerArrangement, outputSpeakerArrangement;
 
     OwnedArray<AudioProcessorParameter> managedParameters;
     AudioProcessorParameter* getParamChecked (int) const noexcept;

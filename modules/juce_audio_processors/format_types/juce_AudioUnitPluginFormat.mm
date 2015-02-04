@@ -345,7 +345,9 @@ public:
         refreshParameterList();
         updateNumChannels();
         producesMidiMessages = canProduceMidiOutput();
-        setPlayConfigDetails (numInputBusses, numInputBusChannels, numOutputBusses, numOutputBusChannels, rate, blockSize);
+        setPlayConfigDetails (numInputBusChannels * numInputBusses,
+                              numOutputBusChannels * numOutputBusses,
+                              rate, blockSize);
         setLatencySamples (0);
 
         if (parameters.size() == 0)
@@ -438,7 +440,9 @@ public:
             AudioUnitSetProperty (audioUnit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0,
                                   &frameSize, sizeof (frameSize));
 
-            setPlayConfigDetails (numInputBusses, numInputBusChannels, numOutputBusses, numOutputBusChannels, newSampleRate, estimatedSamplesPerBlock);
+            setPlayConfigDetails (numInputBusChannels * numInputBusses,
+                                  numOutputBusChannels * numOutputBusses,
+                                  newSampleRate, estimatedSamplesPerBlock);
 
             Float64 latencySecs = 0.0;
             UInt32 latencySize = sizeof (latencySecs);
