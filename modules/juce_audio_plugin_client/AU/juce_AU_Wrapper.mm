@@ -349,11 +349,14 @@ public:
                     {
                         if (juceFilter != nullptr)
                         {
+                            const String text (String::fromCFString (pv->inString));
+
                             if (AudioProcessorParameter* param = juceFilter->getParameters() [(int) pv->inParamID])
-                            {
-                                pv->outValue = param->getValueForText (String::fromCFString (pv->inString));
-                                return noErr;
-                            }
+                                pv->outValue = param->getValueForText (text);
+                            else
+                                pv->outValue = text.getFloatValue();
+
+                            return noErr;
                         }
                     }
                 }
@@ -365,11 +368,16 @@ public:
                     {
                         if (juceFilter != nullptr)
                         {
+                            const float value = (float) *(pv->inValue);
+                            String text;
+
                             if (AudioProcessorParameter* param = juceFilter->getParameters() [(int) pv->inParamID])
-                            {
-                                pv->outString = param->getText ((float) *(pv->inValue), 0).toCFString();
-                                return noErr;
-                            }
+                                text = param->getText ((float) *(pv->inValue), 0);
+                            else
+                                text = String (value);
+
+                            pv->outString = text.toCFString();
+                            return noErr;
                         }
                     }
                 }
@@ -530,26 +538,9 @@ public:
 
             AUBase::FillInParameterName (outParameterInfo, name.toCFString(), true);
 
-            ParamInfo paramInfo = juceFilter->parameterInfo(inParameterID);
-            outParameterInfo.defaultValue =
-                juceFilter->parameterValueToScaled(
-                    inParameterID,
-                    paramInfo.defaultVal);
             AudioUnitParameterUnit unit = kAudioUnitParameterUnit_Generic;
-            switch(paramInfo.paramType)
-            {
-                case juce::eParamTypeGeneric:
-                    unit = kAudioUnitParameterUnit_Generic;
-                    break;
-                case juce::eParamTypeBool:
-                    unit = kAudioUnitParameterUnit_Boolean;
-                    break;
-                case juce::eParamTypeHz:
-                    unit = kAudioUnitParameterUnit_Hertz;
-                    break;
-                default:
-                    assert(0);
-            }
+            if (juceFilter->getParameterNumSteps (inParameterID) == 1)
+                unit = kAudioUnitParameterUnit_Boolean;
             outParameterInfo.unit = unit;
             if (unit != kAudioUnitParameterUnit_Boolean) {
                 outParameterInfo.flags |= kAudioUnitParameterFlag_ValuesHaveStrings;
@@ -684,6 +675,12 @@ public:
                                     &outCycleEndBeat) != noErr)
         {
             // If the host doesn't support this callback, use the sample time from lastTimeStamp:
+            outCurrentSampleInTimeLine = lastTimeStamp.mSampleTime;
+        }
+
+        if (getHostType().isLogic())
+        {
+            // Use the sample time from lastTimeStamp to work around bug in Logic Pro 10.1
             outCurrentSampleInTimeLine = lastTimeStamp.mSampleTime;
         }
 
