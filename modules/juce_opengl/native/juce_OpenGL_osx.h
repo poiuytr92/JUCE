@@ -36,11 +36,11 @@ public:
         NSOpenGLPixelFormatAttribute attribs[64] = { 0 };
         createAttribs (attribs, version, pixFormat, shouldUseMultisampling);
 
-        NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes: attribs];
+        pixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes: attribs];
 
         static MouseForwardingNSOpenGLViewClass cls;
         view = [cls.createInstance() initWithFrame: NSMakeRect (0, 0, 100.0f, 100.0f)
-                                       pixelFormat: format];
+                                       pixelFormat: pixelFormat];
 
        #if defined (MAC_OS_X_VERSION_10_7) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7)
         if ([view respondsToSelector: @selector (setWantsBestResolutionOpenGLSurface:)])
@@ -52,7 +52,7 @@ public:
                                                      name: NSViewGlobalFrameDidChangeNotification
                                                    object: view];
 
-        renderContext = [[[NSOpenGLContext alloc] initWithFormat: format
+        renderContext = [[[NSOpenGLContext alloc] initWithFormat: pixelFormat
                                                     shareContext: (NSOpenGLContext*) contextToShare] autorelease];
 
         GLint val = 1;
@@ -60,7 +60,6 @@ public:
                     forParameter: NSOpenGLCPSurfaceOpacity];
 
         [view setOpenGLContext: renderContext];
-        [format release];
 
         viewAttachment = NSViewComponent::attachViewToComponent (component, view);
     }
@@ -72,6 +71,7 @@ public:
         [renderContext setView: nil];
         [view setOpenGLContext: nil];
         renderContext = nil;
+        [pixelFormat release];
     }
 
     static void createAttribs (NSOpenGLPixelFormatAttribute* attribs, OpenGLVersion version,
@@ -249,12 +249,13 @@ public:
             CGDirectDisplayID displayID = CGMainDisplayID();
             CVDisplayLinkCreateWithCGDisplay (displayID, &displayLinkRef);
             CVDisplayLinkSetOutputCallback (displayLinkRef, displayLinkOutputCallback, target);
-            CVDisplayLinkSetCurrentCGDisplayFromOpenGLContext (displayLinkRef, (CGLContextObj) [renderContext CGLContextObj], (CGLPixelFormatObj) [[renderContext pixelFormat] CGLPixelFormatObj]);
+            CVDisplayLinkSetCurrentCGDisplayFromOpenGLContext (displayLinkRef, (CGLContextObj) [renderContext CGLContextObj], (CGLPixelFormatObj) [pixelFormat CGLPixelFormatObj]);
         }
         displayLinkTarget = target;
         CVDisplayLinkStart (displayLinkRef);
     }
     
+    NSOpenGLPixelFormat* pixelFormat;
     NSOpenGLContext* renderContext;
     NSOpenGLView* view;
     ReferenceCountedObjectPtr<ReferenceCountedObject> viewAttachment;
