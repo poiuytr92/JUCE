@@ -30,7 +30,6 @@ struct TextureInfo
     GLuint textureID;
     int imageWidth, imageHeight;
     float fullWidthProportion, fullHeightProportion;
-    // SR addition: the flag for vertial flip necessity on rendering.
     bool vFlipped;
 };
 

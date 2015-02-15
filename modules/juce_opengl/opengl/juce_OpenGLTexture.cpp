@@ -127,7 +127,6 @@ void OpenGLTexture::loadImage (const Image& image)
 
     Image::BitmapData srcData (image, Image::BitmapData::readOnly);
 
-    // SR addition: do not flip images (CPU expensive operation).
     switch (srcData.pixelFormat)
     {
         case Image::ARGB:

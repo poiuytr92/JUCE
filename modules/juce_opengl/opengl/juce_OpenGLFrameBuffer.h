@@ -115,8 +115,10 @@ public:
     /** Writes an area of pixels into the framebuffer from a specified pixel array.
         The lineStride is measured as a number of pixels, not bytes - pass a stride
         of 0 to indicate a packed array.
+        The flippedVertically flag indicated whether the image is already vertically
+        flipped and should not be on rendering.
     */
-    bool writePixels (const PixelARGB* srcData, const Rectangle<int>& targetArea, /* SR addition */ bool flippedVertically = true);
+    bool writePixels (const PixelARGB* srcData, const Rectangle<int>& targetArea, bool flippedVertically = true);
 
 private:
     class Pimpl;
