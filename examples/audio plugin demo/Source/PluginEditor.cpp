@@ -117,6 +117,22 @@ void JuceDemoPluginAudioProcessorEditor::sliderValueChanged (Slider* slider)
     }
 }
 
+void JuceDemoPluginAudioProcessorEditor::sliderDragStarted (Slider* slider)
+{
+    if (slider == &gainSlider)
+        getProcessor().beginParameterChangeGesture (JuceDemoPluginAudioProcessor::gainParam);
+    else if (slider == &delaySlider)
+        getProcessor().beginParameterChangeGesture (JuceDemoPluginAudioProcessor::delayParam);
+}
+
+void JuceDemoPluginAudioProcessorEditor::sliderDragEnded (Slider* slider)
+{
+    if (slider == &gainSlider)
+        getProcessor().endParameterChangeGesture (JuceDemoPluginAudioProcessor::gainParam);
+    else if (slider == &delaySlider)
+        getProcessor().endParameterChangeGesture (JuceDemoPluginAudioProcessor::delayParam);
+}
+
 //==============================================================================
 // quick-and-dirty function to format a timecode string
 static String timeToTimecodeString (const double seconds)
