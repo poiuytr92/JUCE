@@ -933,8 +933,8 @@ class CoreAudioIODevice   : public AudioIODevice,
 public:
     CoreAudioIODevice (CoreAudioIODeviceType* dt,
                        const String& deviceName,
-                       AudioDeviceID inputDeviceId, int inputIndex_,
-                       AudioDeviceID outputDeviceId, int outputIndex_)
+                       const String& inputDeviceName, AudioDeviceID inputDeviceId, int inputIndex_,
+                       const String& outputDeviceName, AudioDeviceID outputDeviceId, int outputIndex_)
         : AudioIODevice (deviceName, "CoreAudio"),
           deviceType (dt),
           inputIndex (inputIndex_),
@@ -947,9 +947,38 @@ public:
             jassert (inputDeviceId != 0);
             device = new CoreAudioInternal (*this, inputDeviceId, true, outputDeviceId != 0);
         }
-        else
+        else if (inputDeviceId == 0)
         {
             device = new CoreAudioInternal (*this, outputDeviceId, false, true);
+        }
+        else
+        {
+            auto inputSubDevice = std::make_unique<DynamicObject>();
+            String inputDeviceUID = getDeviceUID (inputDeviceId);
+            inputSubDevice->setProperty (kAudioSubDeviceUIDKey, inputDeviceUID);
+            inputSubDevice->setProperty (kAudioSubDeviceNameKey, deviceName);
+            auto outputSubDevice = std::make_unique<DynamicObject>();
+            String outputDeviceUID = getDeviceUID (outputDeviceId);
+            outputSubDevice->setProperty (kAudioSubDeviceUIDKey, outputDeviceUID);
+            outputSubDevice->setProperty (kAudioSubDeviceNameKey, deviceName);
+            Array<var> subDevices {var (inputSubDevice.release()), var (outputSubDevice.release())};
+            auto subDevicesVar = var (subDevices);
+
+            // TODO: Cleanup any previous aggregate
+
+            auto description = std::make_unique<DynamicObject>();
+            description->setProperty (kAudioAggregateDeviceUIDKey, "com.juce.aggregate");
+
+            // TODO: Get both names
+            description->setProperty (kAudioAggregateDeviceNameKey, "JUCE Aggregate Device (" + deviceName + ")");
+            description->setProperty (kAudioAggregateDeviceSubDeviceListKey, subDevicesVar);
+//            description->setProperty (kAudioAggregateDeviceMasterSubDeviceKey, inputDeviceUID);
+//            description->setProperty (kAudioAggregateDeviceMasterSubDeviceKey, inputDeviceUID);
+
+            var descriptionVar (description.release());
+            NSDictionary* dict = varObjectToNSDictionary (descriptionVar);
+            OSStatus status = AudioHardwareCreateAggregateDevice ((CFDictionaryRef)dict, &aggregateDeviceID);
+            device = new CoreAudioInternal (*this, aggregateDeviceID, true, true);
         }
 
         jassert (device != nullptr);
@@ -973,6 +1002,9 @@ public:
         pa.mElement = kAudioObjectPropertyElementWildcard;
 
         AudioObjectRemovePropertyListener (kAudioObjectSystemObject, &pa, hardwareListenerProc, internal.get());
+
+        if (aggregateDeviceID != 0)
+            AudioHardwareDestroyAggregateDevice (aggregateDeviceID);
     }
 
     StringArray getOutputChannelNames() override        { return internal->outChanNames; }
@@ -1145,6 +1177,7 @@ public:
     int inputIndex, outputIndex;
 
 private:
+    AudioDeviceID aggregateDeviceID = 0;
     std::unique_ptr<CoreAudioInternal> internal;
     bool isOpen_ = false, isStarted = false, restartDevice = true;
     String lastError;
@@ -1181,6 +1214,11 @@ private:
         }
 
         return noErr;
+    }
+
+    static String getDeviceUID (AudioDeviceID deviceID)
+    {
+        return "";
     }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CoreAudioIODevice)
@@ -2152,8 +2190,8 @@ public:
         auto combinedName = outputDeviceName.isEmpty() ? inputDeviceName
                                                        : outputDeviceName;
 
-        if (inputDeviceID == outputDeviceID)
-            return new CoreAudioIODevice (this, combinedName, inputDeviceID, inputIndex, outputDeviceID, outputIndex);
+//        if (inputDeviceID == outputDeviceID)
+        return new CoreAudioIODevice (this, combinedName, inputDeviceID, inputIndex, outputDeviceID, outputIndex);
 
         std::unique_ptr<CoreAudioIODevice> in, out;
 
